@@ -8,11 +8,10 @@ import homeassistant.helpers.config_validation as cv
 
 from homeassistant.components.climate import (ClimateDevice, PLATFORM_SCHEMA, STATE_OFF, STATE_IDLE, STATE_HEAT, STATE_COOL, STATE_AUTO,
 ATTR_OPERATION_MODE, SUPPORT_OPERATION_MODE, SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE)
-from homeassistant.const import (ATTR_UNIT_OF_MEASUREMENT, ATTR_TEMPERATURE, CONF_NAME, CONF_HOST, CONF_PORT, CONF_TIMEOUT, CONF_CUSTOMIZE)
+from homeassistant.const import (ATTR_UNIT_OF_MEASUREMENT, ATTR_TEMPERATURE, CONF_NAME, CONF_HOST, CONF_PORT, CONF_CUSTOMIZE)
 from homeassistant.helpers.event import (async_track_state_change)
 from homeassistant.core import callback
 from homeassistant.helpers.restore_state import async_get_last_state
-from configparser import ConfigParser
 
 REQUIREMENTS = ['pyharmony==1.0.20']
 
@@ -20,7 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE | SUPPORT_FAN_MODE
 
-CONF_IRCODES_INI = 'ircodes_ini'
 CONF_MIN_TEMP = 'min_temp'
 CONF_MAX_TEMP = 'max_temp'
 CONF_TARGET_TEMP = 'target_temp'
@@ -35,8 +33,6 @@ CONF_DEVICE_ID = 'device_id'
 CONF_DEFAULT_OPERATION_FROM_IDLE = 'default_operation_from_idle'
 
 DEFAULT_NAME = 'Harmony Hub Climate'
-DEFAULT_TIMEOUT = 10
-DEFAULT_RETRY = 3
 DEFAULT_MIN_TEMP = 16
 DEFAULT_MAX_TEMP = 30
 DEFAULT_TARGET_TEMP = 20
@@ -57,8 +53,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_DEVICE_ID): cv.string,
     vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.string,
-    vol.Required(CONF_IRCODES_INI): cv.string,
-    vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): cv.positive_int, 
     vol.Optional(CONF_MIN_TEMP, default=DEFAULT_MIN_TEMP): cv.positive_int,
     vol.Optional(CONF_MAX_TEMP, default=DEFAULT_MAX_TEMP): cv.positive_int,
     vol.Optional(CONF_TARGET_TEMP, default=DEFAULT_TARGET_TEMP): cv.positive_int,
@@ -72,7 +66,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
-    """Set up the Harmony IR Climate platform."""
+    """Set up the Harmony Hub Climate platform."""
     name = config.get(CONF_NAME)
     ip_addr = config.get(CONF_HOST)
     port = config.get(CONF_PORT)
@@ -97,27 +91,13 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     if harmony_device is None:
         _LOGGER.error("Failed to connect to Harmony Hub")
     
-    ircodes_ini_file = config.get(CONF_IRCODES_INI)
-    
-    if ircodes_ini_file.startswith("/"):
-        ircodes_ini_file = ircodes_ini_file[1:]
-        
-    ircodes_ini_path = hass.config.path(ircodes_ini_file)
-    
-    if os.path.exists(ircodes_ini_path):
-        ircodes_ini = ConfigParser()
-        ircodes_ini.read(ircodes_ini_path)
-    else:
-        _LOGGER.error("The ini file was not found. (" + ircodes_ini_path + ")")
-        return
-    
     async_add_devices([
-        HarmonyIRClimate(hass, name, harmony_device, device_id, ircodes_ini, min_temp, max_temp, target_temp, target_temp_step, temp_sensor_entity_id, operation_list, fan_list, default_operation, default_fan_mode, default_operation_from_idle)
+        HarmonyIRClimate(hass, name, harmony_device, device_id, min_temp, max_temp, target_temp, target_temp_step, temp_sensor_entity_id, operation_list, fan_list, default_operation, default_fan_mode, default_operation_from_idle)
     ])
 
 class HarmonyIRClimate(ClimateDevice):
 
-    def __init__(self, hass, name, harmony_device, device_id, ircodes_ini, min_temp, max_temp, target_temp, target_temp_step, temp_sensor_entity_id, operation_list, fan_list, default_operation, default_fan_mode, default_operation_from_idle):
+    def __init__(self, hass, name, harmony_device, device_id, min_temp, max_temp, target_temp, target_temp_step, temp_sensor_entity_id, operation_list, fan_list, default_operation, default_fan_mode, default_operation_from_idle):
                  
         """Initialize Harmony IR Climate device."""
         self.hass = hass
@@ -142,7 +122,6 @@ class HarmonyIRClimate(ClimateDevice):
                 
         self._harmony_device = harmony_device
         self._device_id = device_id
-        self._commands_ini = ircodes_ini
         
         if temp_sensor_entity_id:
             async_track_state_change(
@@ -155,30 +134,17 @@ class HarmonyIRClimate(ClimateDevice):
     
     
     def send_ir(self):     
-        section = self._current_operation.lower()
+        mode = self._current_operation.capitalize()
+        fan = self._current_fan_mode.capitalize()
+        temp = str(int(self._target_temperature))
         
-        if section == 'off':
-            value = 'Off'
-        elif section == 'idle':
-            value = 'Off'
+        if mode == 'Off':
+            command = 'Off'
+        elif mode == 'Idle':
+            command = 'Off'
         else: 
-            # value = self._current_fan_mode.lower() + "_" + str(int(self._target_temperature)) if not section == 'off' else 'off_command'
-            value = 'Cool 20' if not section == 'off' else 'Off'
-        
-        # command = self._commands_ini.get(section, value)
-        command = value
+            command = mode + fan + temp
 
-        # for retry in range(DEFAULT_RETRY):
-        #     try:
-        #         payload = b64decode(command)
-        #         self._broadlink_device.send_data(payload)
-        #         break
-        #     except (socket.timeout, ValueError):
-        #         try:
-        #             self._broadlink_device.auth()
-        #         except socket.timeout:
-        #             if retry == DEFAULT_RETRY-1:
-        #                 _LOGGER.error("Failed to send packet to Broadlink RM Device")
         self._harmony_device.send_command(self._device_id, command)
     
     @asyncio.coroutine
