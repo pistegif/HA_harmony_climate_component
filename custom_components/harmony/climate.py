@@ -301,8 +301,7 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
                 await self.async_send_ir()
             elif self._default_operation_from_idle is not None:
                 await self.async_set_operation_mode(self._default_operation_from_idle)
-                
-            # self.schedule_update_ha_state()
+
             await self.async_update_ha_state()
 
     async def async_set_fan_mode(self, fan):
@@ -313,7 +312,6 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
                 or self._current_operation.lower() == 'idle'):
             await self.async_send_ir()
             
-        # self.schedule_update_ha_state()
         await self.async_update_ha_state()
 
     async def async_set_operation_mode(self, operation_mode):
@@ -322,8 +320,8 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         if not (self._current_operation.lower() == 'off' 
                 or self._current_operation.lower() == 'idle'):
             self._last_operation = self._current_operation
+
         await self.async_send_ir()
-        # self.schedule_update_ha_state()
         await self.async_update_ha_state()
 
     async def async_turn_on(self):
