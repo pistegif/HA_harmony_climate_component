@@ -304,9 +304,9 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
 
             await self.async_update_ha_state()
 
-    async def async_set_fan_mode(self, fan):
-        """Set new target temperature."""
-        self._current_fan_mode = fan
+    async def async_set_fan_mode(self, fan_mode):
+        """Set fan mode."""
+        self._current_fan_mode = fan_mode
         
         if not (self._current_operation.lower() == 'off'
                 or self._current_operation.lower() == 'idle'):
@@ -315,7 +315,7 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         await self.async_update_ha_state()
 
     async def async_set_operation_mode(self, operation_mode):
-        """Set new target temperature."""
+        """Set operation mode."""
         self._current_operation = operation_mode
         if not (self._current_operation.lower() == 'off' 
                 or self._current_operation.lower() == 'idle'):
