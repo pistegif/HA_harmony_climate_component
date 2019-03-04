@@ -11,7 +11,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.components.climate import (
     ClimateDevice, PLATFORM_SCHEMA, STATE_OFF, STATE_IDLE, STATE_HEAT, 
     STATE_COOL, STATE_AUTO, ATTR_OPERATION_MODE, SUPPORT_OPERATION_MODE, 
-    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE)
+    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE, SUPPORT_ON_OFF)
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT, ATTR_TEMPERATURE, CONF_NAME, CONF_HOST, 
     CONF_PORT, CONF_CUSTOMIZE)
@@ -23,9 +23,12 @@ REQUIREMENTS = ['aioharmony==0.1.8']
 
 _LOGGER = logging.getLogger(__name__)
 
-SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | 
-                 SUPPORT_OPERATION_MODE | 
-                 SUPPORT_FAN_MODE)
+SUPPORT_FLAGS = (
+    SUPPORT_TARGET_TEMPERATURE | 
+    SUPPORT_OPERATION_MODE | 
+    SUPPORT_FAN_MODE | 
+    SUPPORT_ON_OFF
+)
 
 CONF_MIN_TEMP = 'min_temp'
 CONF_MAX_TEMP = 'max_temp'
@@ -230,6 +233,13 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
     def name(self):
         """Return the name of the climate device."""
         return self._name
+
+    @property
+    def state(self):
+        """Return the current state."""
+        if self.current_operation != STATE_OFF:
+            return self.current_operation
+        return STATE_OFF
 
     @property
     def temperature_unit(self):
