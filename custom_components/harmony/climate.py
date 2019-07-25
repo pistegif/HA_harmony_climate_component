@@ -16,13 +16,11 @@ from homeassistant.components.climate.const import (
     SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE,
     HVAC_MODES, ATTR_HVAC_MODE)
 from homeassistant.const import (
-    CONF_NAME, CONF_HOST, CONF_CUSTOMIZE, STATE_ON, 
-    ATTR_TEMPERATURE, ATTR_UNIT_OF_MEASUREMENT)
+    CONF_NAME, CONF_CUSTOMIZE, STATE_ON, STATE_UNKNOWN, ATTR_TEMPERATURE,
+    PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE)
 from homeassistant.helpers.event import (async_track_state_change)
 from homeassistant.core import callback
 from homeassistant.helpers.restore_state import RestoreEntity
-
-REQUIREMENTS = ['aioharmony==0.1.8']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +29,7 @@ SUPPORT_FLAGS = (
     SUPPORT_FAN_MODE
 )
 
+CONF_REMOTE_ENTITY = 'remote_entity'
 CONF_MIN_TEMP = 'min_temp'
 CONF_MAX_TEMP = 'max_temp'
 CONF_TARGET_TEMP = 'target_temp'
@@ -38,11 +37,7 @@ CONF_TARGET_TEMP_STEP = 'target_temp_step'
 CONF_TEMP_SENSOR = 'temp_sensor'
 CONF_OPERATIONS = 'operations'
 CONF_FAN_MODES = 'fan_modes'
-CONF_DEFAULT_OPERATION = 'default_operation'
-CONF_DEFAULT_FAN_MODE = 'default_fan_mode'
 CONF_DEVICE_ID = 'device_id'
-
-CONF_DEFAULT_OPERATION_FROM_IDLE = 'default_operation_from_idle'
 
 DEFAULT_NAME = 'Harmony Hub Climate'
 DEFAULT_MIN_TEMP = 16
@@ -50,9 +45,7 @@ DEFAULT_MAX_TEMP = 30
 DEFAULT_TARGET_TEMP = 20
 DEFAULT_TARGET_TEMP_STEP = 1
 DEFAULT_OPERATION_LIST = [HVAC_MODE_OFF, HVAC_MODE_HEAT, HVAC_MODE_COOL, HVAC_MODE_AUTO]
-DEFAULT_FAN_MODE_LIST = ['low', 'mid', 'high', 'auto']
-DEFAULT_OPERATION = 'off'
-DEFAULT_FAN_MODE = 'auto'
+DEFAULT_FAN_MODE_LIST = ['auto', 'low', 'mid', 'high']
 
 CUSTOMIZE_SCHEMA = vol.Schema({
     vol.Optional(CONF_OPERATIONS): vol.All(cv.ensure_list, [cv.string]),
@@ -62,8 +55,8 @@ CUSTOMIZE_SCHEMA = vol.Schema({
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): 
         cv.string,
-    vol.Required(CONF_HOST): 
-        cv.string,
+    vol.Required(CONF_REMOTE_ENTITY): 
+        cv.entity_id,
     vol.Required(CONF_DEVICE_ID): 
         cv.string,
     vol.Optional(CONF_MIN_TEMP, default=DEFAULT_MIN_TEMP):
@@ -77,65 +70,39 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_TEMP_SENSOR): 
         cv.entity_id,
     vol.Optional(CONF_CUSTOMIZE, default={}): 
-        CUSTOMIZE_SCHEMA,
-    vol.Optional(CONF_DEFAULT_OPERATION, default=DEFAULT_OPERATION): 
-        cv.string,
-    vol.Optional(CONF_DEFAULT_FAN_MODE, default=DEFAULT_FAN_MODE): 
-        cv.string,
-    vol.Optional(CONF_DEFAULT_OPERATION_FROM_IDLE): 
-        cv.string
+        CUSTOMIZE_SCHEMA
 })
 
 async def async_setup_platform(hass, config, async_add_entities,
                                discovery_info=None):
     """Set up the Harmony Hub Climate platform."""
     name = config.get(CONF_NAME)
-    ip_addr = config.get(CONF_HOST)
+    remote_entity = config.get(CONF_REMOTE_ENTITY)
     device_id = config.get(CONF_DEVICE_ID)
       
     min_temp = config.get(CONF_MIN_TEMP)
     max_temp = config.get(CONF_MAX_TEMP)
     target_temp = config.get(CONF_TARGET_TEMP)
     target_temp_step = config.get(CONF_TARGET_TEMP_STEP)
-    temp_sensor_entity_id = config.get(CONF_TEMP_SENSOR)
+    temperature_sensor = config.get(CONF_TEMP_SENSOR)
     operation_list = (
         config.get(CONF_CUSTOMIZE).get(CONF_OPERATIONS, []) or 
         DEFAULT_OPERATION_LIST)
     fan_list = (
         config.get(CONF_CUSTOMIZE).get(CONF_FAN_MODES, []) or 
         DEFAULT_FAN_MODE_LIST)
-    default_operation = config.get(CONF_DEFAULT_OPERATION)
-    default_fan_mode = config.get(CONF_DEFAULT_FAN_MODE)
-    
-    default_operation_from_idle = config.get(CONF_DEFAULT_OPERATION_FROM_IDLE)
-   
-    from aioharmony.harmonyapi import HarmonyAPI as HarmonyClient
-    
-    harmony_device = HarmonyClient(ip_address=ip_addr)
-
-    if harmony_device is None:
-        _LOGGER.error("Failed to connect to Harmony Hub")
-        return
-    else:
-        _LOGGER.debug(
-            "Connected to Harmony Hub Climate Component: %s at %s",
-            name, ip_addr)
-    
+         
     async_add_entities([
-        HarmonyIRClimate(hass, name, harmony_device, device_id, min_temp, 
+        HarmonyIRClimate(hass, name, remote_entity, device_id, min_temp, 
                          max_temp, target_temp, target_temp_step,
-                         temp_sensor_entity_id, operation_list, fan_list, 
-                         default_operation, default_fan_mode, 
-                         default_operation_from_idle)
+                         temperature_sensor, operation_list, fan_list)
     ])
 
 class HarmonyIRClimate(ClimateDevice, RestoreEntity):
 
-    def __init__(self, hass, name, harmony_device, device_id, min_temp, 
+    def __init__(self, hass, name, remote_entity, device_id, min_temp, 
                 max_temp, target_temp, target_temp_step, 
-                temp_sensor_entity_id, operation_list, fan_list, 
-                default_operation, default_fan_mode, 
-                default_operation_from_idle):
+                temperature_sensor, operation_list, fan_list):
         """Initialize Harmony IR Climate device."""
         self.hass = hass
         self._name = name
@@ -146,34 +113,47 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         self._target_temperature_step = target_temp_step
         self._unit_of_measurement = hass.config.units.temperature_unit
 
-        self._current_temperature = 0
-        self._temp_sensor_entity_id = temp_sensor_entity_id
-
-        self._hvac_mode = HVAC_MODE_OFF
-        self._last_on_operation = None
-        self._current_fan_mode = default_fan_mode
-                
         valid_hvac_modes = [x for x in operation_list if x in HVAC_MODES]        
+        
         self._operation_modes = [HVAC_MODE_OFF] + valid_hvac_modes
         self._fan_modes = fan_list
 
-        self._default_operation_from_idle = default_operation_from_idle
+        self._hvac_mode = HVAC_MODE_OFF
+        self._last_on_operation = None
+        self._current_fan_mode = self._fan_modes[0]
 
-        self._harmony_device = harmony_device
+        self._current_temperature = None
+        self._temperature_sensor = temperature_sensor
+
+        self._remote_entity = remote_entity
         self._device_id = device_id
 
-        if temp_sensor_entity_id:
-            async_track_state_change(hass, temp_sensor_entity_id, 
+
+    async def async_added_to_hass(self):
+        """Run when entity about to be added."""
+        await super().async_added_to_hass()
+    
+        last_state = await self.async_get_last_state()
+        
+        if last_state is not None:
+            self._hvac_mode = last_state.state
+            self._current_fan_mode = last_state.attributes['fan_mode']
+            self._target_temperature = last_state.attributes['temperature']
+
+            if 'last_on_operation' in last_state.attributes:
+                self._last_on_operation = last_state.attributes['last_on_operation']
+
+        if self._temperature_sensor:
+            async_track_state_change(self.hass, self._temperature_sensor, 
                                      self._async_temp_sensor_changed)
-            sensor_state = hass.states.get(temp_sensor_entity_id)    
-            if sensor_state:
-                self._async_update_current_temp(sensor_state)
-    
-    
+
+            temp_sensor_state = self.hass.states.get(self._temperature_sensor)
+            if temp_sensor_state and temp_sensor_state.state != STATE_UNKNOWN:
+                self._async_update_temp(temp_sensor_state)
+
+
     async def async_send_ir(self):     
         """Send command to harmony device"""
-        from aioharmony.harmonyapi import SendCommandDevice
-        import aioharmony.exceptions as aioexc
 
         operation_mode = self._hvac_mode
         fan_mode = self._current_fan_mode
@@ -184,16 +164,21 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         else:
             command = operation_mode.capitalize() + fan_mode.capitalize() + target_temperature.capitalize()
 
-        send_command = SendCommandDevice(
-            device=self._device_id,
-            command=command,
-            delay=0
-        )
+        service_data = {
+            'entity_id': self._remote_entity,
+            'device': self._device_id,
+            'command': command
+        }
+
         _LOGGER.debug(
-            "Sending command %s to device %s", command, self._device_id
+            "remote.send_command %s", service_data
         )
-        await self._harmony_device.send_commands([send_command])
-        
+
+        await self.hass.services.async_call(
+            'remote', 'send_command', service_data) 
+            
+
+      
     async def _async_temp_sensor_changed(self, entity_id, old_state, 
                                          new_state):
         """Handle temperature changes."""
@@ -205,25 +190,13 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         
     @callback
     def _async_update_current_temp(self, state):
-        """Update thermostat with latest state from sensor."""
-        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-
+        """Update thermostat with latest state from temperature sensor."""
         try:
-            _state = state.state
-            if self.represents_float(_state):
-                self._current_temperature = (
-                    self.hass.config.units.temperature(float(_state), unit))
+            if state.state != STATE_UNKNOWN:
+                self._current_temperature = float(state.state)
         except ValueError as ex:
-            _LOGGER.error('Unable to update from sensor: %s', ex)    
-
-    def represents_float(self, s):
-        try: 
-            float(s)
-            return True
-        except ValueError:
-            return False     
-
-    
+            _LOGGER.error("Unable to update from temperature sensor: %s", ex)  
+  
     @property
     def should_poll(self):
         """Return the polling state."""
@@ -282,6 +255,11 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
     def last_on_operation(self):
         """Return the last non-idle operation ie. heat, cool."""
         return self._last_on_operation
+    
+    @property
+    def hvac_modes(self):
+        """Return the list of available operation modes."""
+        return self._operation_modes
 
     @property
     def hvac_mode(self):
@@ -311,11 +289,11 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         if temperature is None:
             return
             
-        if temperature < self._min_temperature or temperature > self._max_temperature:
+        if temperature < self._min_temp or temperature > self._max_temp:
             _LOGGER.warning('The temperature value is out of min/max range') 
             return
 
-        if self._precision == PRECISION_WHOLE:
+        if self._target_temperature_step == PRECISION_WHOLE:
             self._target_temperature = round(temperature)
         else:
             self._target_temperature = round(temperature, 1)
@@ -358,15 +336,3 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
     async def async_turn_off(self):
         """Turn thermostat off."""
         await self.async_set_hvac_mode(HVAC_MODE_OFF)
-
-    async def async_added_to_hass(self):
-        """Run when entity about to be added."""
-        await super().async_added_to_hass()
-    
-        last_state = await self.async_get_last_state()
-        
-        if last_state is not None:
-            self._target_temperature = last_state.attributes['temperature']
-            self._current_operation = last_state.attributes['operation_mode']
-            self._current_fan_mode = last_state.attributes['fan_mode']
-
