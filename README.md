@@ -3,22 +3,25 @@
 I created this custom climate component to control air conidioners through a Harmony Hub. I forked from this [project](https://github.com/vpnmaster/homeassistant-custom-components), which was created for Broadlink RM Devices, so thanks goes to [vpnmaster](https://github.com/vpnmaster) for doing the hard work in creating that component.
 
 ## Installing
-Download or clone this project, and place the custom_components folder and its contents into your Home Assistant config folder.
+Download or clone this project, and place the `custom_components` folder and its contents into your Home Assistant config folder.
+
+Ensure `climate.py` is located in a folder named `harmony_ac` within the `custom_components` folder.
 
 
 
 ## Configuration in configuration.yaml:
-**name** (Optional): Name of climate component<br />
+**platform** (Required:) set this to `harmony_ac`<br />
+**name** (Optional): Name you would like to give this climate component<br />
 **remote_entity** (Required): **entity_id** of your existing harmony device in HA that will send the commands<br />
-**device_id** (Required): The ID Harmony has assigned to your air conditioner unit (see below for how to obtain)<br />
-**min_temp** (Optional): Set minimum set point available (default: 16)<br />
-**max_temp** (Optional): Set maximum set point available (default: 30)<br />
+**device_id** (Required): The ID Harmony has assigned to your air conditioner unit (see further below for how to obtain)<br />
+**min_temp** (Optional): Set minimum temperature range (default: 16)<br />
+**max_temp** (Optional): Set maximum temperature range (default: 30)<br />
 **target_temp** (Optional): Set initial target temperature. (default: 20)<br />
 **target_temp_step** (Optional): set target temperature step. (default: 1)<br />
 **temp_sensor** (Optional): **entity_id** for a temperature sensor, **temp_sensor.state must be temperature.**<br />
 **customize** (Optional): List of options to customize.<br />
-  **- operations** (Optional*): List of operation modes (default: heat, cool, auto)<br />
-  **- fan_modes** (Optional*): List of fan modes (default: auto, low, mid, high)<br />
+  **- operations** (Optional): List of operation modes (default: heat, cool, auto) **do not include the OFF mode in this list**<br />
+  **- fan_modes** (Optional): List of fan modes (default: auto, low, mid, high)<br />
   
 ## Example:
 ```yaml
@@ -30,7 +33,7 @@ climate:
     min_temp: 18
     max_temp: 30
     target_temp: 20
-    target_temp_step: 1
+    target_temp_step: 0.5
     temp_sensor: sensor.living_room_temp
     customize:
       operations:
