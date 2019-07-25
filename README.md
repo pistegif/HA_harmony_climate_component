@@ -16,16 +16,14 @@ Download or clone this project, and place the custom_components folder and its c
 **target_temp** (Optional): Set initial target temperature. (default: 20)<br />
 **target_temp_step** (Optional): set target temperature step. (default: 1)<br />
 **temp_sensor** (Optional): **entity_id** for a temperature sensor, **temp_sensor.state must be temperature.**<br />
-**default_operation** (Optional): (default: 'off')<br />
-**default_fan_mode** (Optional): (default: auto)<br />
 **customize** (Optional): List of options to customize.<br />
-  **- operations** (Optional*): List of operation modes (default: idle, heat, cool, auto)<br />
-  **- fan_modes** (Optional*): List of fan modes (default: low, mid, high, auto)<br />
+  **- operations** (Optional*): List of operation modes (default: heat, cool, auto)<br />
+  **- fan_modes** (Optional*): List of fan modes (default: auto, low, mid, high)<br />
   
 #### Example:
 ```
 climate:
-  - platform: harmony
+  - platform: harmony_ac
     name: Living Room
     host: '192.168.0.10'
     device_id: 12345678
@@ -34,18 +32,17 @@ climate:
     target_temp: 20
     target_temp_step: 1
     temp_sensor: sensor.living_room_temp
-    default_operation: 'off'
-    default_fan_mode: auto
     customize:
       operations:
-        - 'off'
         - cool
         - heat
+        - dry
+        - auto
       fan_modes:
+        - auto
         - low
         - mid
         - high
-        - auto
 ```
 
 #### How to obtain your Air Conditioner's Device ID
