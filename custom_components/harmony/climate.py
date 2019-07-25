@@ -8,13 +8,16 @@ import logging
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
-from homeassistant.components.climate import (
-    ClimateDevice, PLATFORM_SCHEMA, STATE_OFF, STATE_IDLE, STATE_HEAT, 
-    STATE_COOL, STATE_AUTO, ATTR_OPERATION_MODE, SUPPORT_OPERATION_MODE, 
-    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE, SUPPORT_ON_OFF)
+
+from homeassistant.components.climate import ClimateDevice, PLATFORM_SCHEMA
+from homeassistant.components.climate.const import (
+    HVAC_MODE_OFF, HVAC_MODE_HEAT, HVAC_MODE_COOL,
+    HVAC_MODE_DRY, HVAC_MODE_FAN_ONLY, HVAC_MODE_AUTO,
+    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE,
+    HVAC_MODES, ATTR_HVAC_MODE)
 from homeassistant.const import (
-    ATTR_UNIT_OF_MEASUREMENT, ATTR_TEMPERATURE, CONF_NAME, CONF_HOST, 
-    CONF_PORT, CONF_CUSTOMIZE)
+    CONF_NAME, CONF_HOST, CONF_CUSTOMIZE, STATE_ON, 
+    ATTR_TEMPERATURE, ATTR_UNIT_OF_MEASUREMENT)
 from homeassistant.helpers.event import (async_track_state_change)
 from homeassistant.core import callback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -25,9 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SUPPORT_FLAGS = (
     SUPPORT_TARGET_TEMPERATURE | 
-    SUPPORT_OPERATION_MODE | 
-    SUPPORT_FAN_MODE | 
-    SUPPORT_ON_OFF
+    SUPPORT_FAN_MODE
 )
 
 CONF_MIN_TEMP = 'min_temp'
@@ -48,7 +49,7 @@ DEFAULT_MIN_TEMP = 16
 DEFAULT_MAX_TEMP = 30
 DEFAULT_TARGET_TEMP = 20
 DEFAULT_TARGET_TEMP_STEP = 1
-DEFAULT_OPERATION_LIST = [STATE_OFF, STATE_HEAT, STATE_COOL, STATE_AUTO]
+DEFAULT_OPERATION_LIST = [HVAC_MODE_OFF, HVAC_MODE_HEAT, HVAC_MODE_COOL, HVAC_MODE_AUTO]
 DEFAULT_FAN_MODE_LIST = ['low', 'mid', 'high', 'auto']
 DEFAULT_OPERATION = 'off'
 DEFAULT_FAN_MODE = 'auto'
@@ -148,18 +149,13 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         self._current_temperature = 0
         self._temp_sensor_entity_id = temp_sensor_entity_id
 
-        self._current_operation = default_operation
-        self._last_operation = default_operation
+        self._hvac_mode = HVAC_MODE_OFF
+        self._last_on_operation = None
         self._current_fan_mode = default_fan_mode
-        
-        if self._last_operation.lower() in ('off', 'idle'):
-            for op in operation_list:
-                if op.lower() not in ('off', 'idle'):
-                    self._last_operation = op
-                    break
-        
-        self._operation_list = operation_list
-        self._fan_list = fan_list
+                
+        valid_hvac_modes = [x for x in operation_list if x in HVAC_MODES]        
+        self._operation_modes = [HVAC_MODE_OFF] + valid_hvac_modes
+        self._fan_modes = fan_list
 
         self._default_operation_from_idle = default_operation_from_idle
 
@@ -179,11 +175,15 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         from aioharmony.harmonyapi import SendCommandDevice
         import aioharmony.exceptions as aioexc
 
-        mode = self._current_operation.capitalize()
-        fan = self._current_fan_mode.capitalize()
-        temp = str(int(self._target_temperature))
-        command = 'Off' if mode in ('Off', 'Idle') else mode + fan + temp
-        
+        operation_mode = self._hvac_mode
+        fan_mode = self._current_fan_mode
+        target_temperature = '{0:g}'.format(self._target_temperature)
+
+        if operation_mode.lower() == HVAC_MODE_OFF:
+            command = 'Off'
+        else:
+            command = operation_mode.capitalize() + fan_mode.capitalize() + target_temperature.capitalize()
+
         send_command = SendCommandDevice(
             device=self._device_id,
             command=command,
@@ -237,9 +237,11 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
     @property
     def state(self):
         """Return the current state."""
-        if self.current_operation != STATE_OFF:
-            return self.current_operation
-        return STATE_OFF
+        # if self._on_by_remote:
+        #     return STATE_ON
+        if self.hvac_mode != HVAC_MODE_OFF:
+            return self.hvac_mode
+        return HVAC_MODE_OFF
 
     @property
     def temperature_unit(self):
@@ -277,24 +279,24 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         return self._current_operation
 
     @property
-    def last_operation(self):
+    def last_on_operation(self):
         """Return the last non-idle operation ie. heat, cool."""
-        return self._last_operation
+        return self._last_on_operation
 
     @property
-    def operation_list(self):
-        """Return the list of available operation modes."""
-        return self._operation_list
+    def hvac_mode(self):
+        """Return hvac mode ie. heat, cool."""
+        return self._hvac_mode
 
     @property
-    def current_fan_mode(self):
+    def fan_mode(self):
         """Return the fan setting."""
         return self._current_fan_mode
 
     @property
-    def fan_list(self):
+    def fan_modes(self):
         """Return the list of available fan modes."""
-        return self._fan_list
+        return self._fan_modes
         
     @property
     def supported_features(self):
@@ -303,44 +305,59 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
  
     async def async_set_temperature(self, **kwargs):
         """Set new target temperatures."""
-        if kwargs.get(ATTR_TEMPERATURE) is not None:
-            self._target_temperature = kwargs.get(ATTR_TEMPERATURE)
-            
-            if not (self._current_operation.lower() == 'off' 
-                    or self._current_operation.lower() == 'idle'):
-                await self.async_send_ir()
-            elif self._default_operation_from_idle is not None:
-                await self.async_set_operation_mode(self._default_operation_from_idle)
+        hvac_mode = kwargs.get(ATTR_HVAC_MODE)  
+        temperature = kwargs.get(ATTR_TEMPERATURE)
 
-            await self.async_update_ha_state()
+        if temperature is None:
+            return
+            
+        if temperature < self._min_temperature or temperature > self._max_temperature:
+            _LOGGER.warning('The temperature value is out of min/max range') 
+            return
+
+        if self._precision == PRECISION_WHOLE:
+            self._target_temperature = round(temperature)
+        else:
+            self._target_temperature = round(temperature, 1)
+
+        if hvac_mode:
+            await self.async_set_hvac_mode(hvac_mode)
+            return
+        
+        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
+            await self.async_send_ir()
+
+        await self.async_update_ha_state()
 
     async def async_set_fan_mode(self, fan_mode):
         """Set fan mode."""
         self._current_fan_mode = fan_mode
         
-        if not (self._current_operation.lower() == 'off'
-                or self._current_operation.lower() == 'idle'):
+        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
             await self.async_send_ir()
             
         await self.async_update_ha_state()
 
-    async def async_set_operation_mode(self, operation_mode):
-        """Set operation mode."""
-        self._current_operation = operation_mode
-        if not (self._current_operation.lower() == 'off' 
-                or self._current_operation.lower() == 'idle'):
-            self._last_operation = self._current_operation
+    async def async_set_hvac_mode(self, hvac_mode):
+        """Set operation mode."""        
+        self._hvac_mode = hvac_mode
+        
+        if not hvac_mode == HVAC_MODE_OFF:
+            self._last_on_operation = hvac_mode
 
         await self.async_send_ir()
         await self.async_update_ha_state()
 
     async def async_turn_on(self):
         """Turn thermostat on."""
-        await self.async_set_operation_mode(self.last_operation)
+        if self._last_on_operation is not None:
+            await self.async_set_hvac_mode(self._last_on_operation)
+        else:
+            await self.async_set_hvac_mode(self._operation_modes[1])
 
     async def async_turn_off(self):
         """Turn thermostat off."""
-        await self.async_set_operation_mode(STATE_OFF)
+        await self.async_set_hvac_mode(HVAC_MODE_OFF)
 
     async def async_added_to_hass(self):
         """Run when entity about to be added."""
