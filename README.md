@@ -9,7 +9,7 @@ Download or clone this project, and place the custom_components folder and its c
 
 ## Configuration in configuration.yaml:
 **name** (Optional): Name of climate component<br />
-**remote_entity** (Required): The entity name of your existing harmony device<br />
+**remote_entity** (Required): **entity_id** of your existing harmony device in HA that will send the commands<br />
 **device_id** (Required): The ID Harmony has assigned to your air conditioner unit (see below for how to obtain)<br />
 **min_temp** (Optional): Set minimum set point available (default: 16)<br />
 **max_temp** (Optional): Set maximum set point available (default: 30)<br />
