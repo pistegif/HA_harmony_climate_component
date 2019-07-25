@@ -2,14 +2,14 @@
 
 I created this custom climate component to control air conidioners through a Harmony Hub. I forked from this [project](https://github.com/vpnmaster/homeassistant-custom-components), which was created for Broadlink RM Devices, so thanks goes to [vpnmaster](https://github.com/vpnmaster) for doing the hard work in creating that component.
 
-#### Installing
+## Installing
 Download or clone this project, and place the custom_components folder and its contents into your Home Assistant config folder.
 
 
 
-#### Configuration in configuration.yaml:
+## Configuration in configuration.yaml:
 **name** (Optional): Name of climate component<br />
-**host** (Required): The IP address of the Harmony Hub device<br />
+**remote_entity** (Required): The entity name of your existing harmony device<br />
 **device_id** (Required): The ID Harmony has assigned to your air conditioner unit (see below for how to obtain)<br />
 **min_temp** (Optional): Set minimum set point available (default: 16)<br />
 **max_temp** (Optional): Set maximum set point available (default: 30)<br />
@@ -20,12 +20,12 @@ Download or clone this project, and place the custom_components folder and its c
   **- operations** (Optional*): List of operation modes (default: heat, cool, auto)<br />
   **- fan_modes** (Optional*): List of fan modes (default: auto, low, mid, high)<br />
   
-#### Example:
-```
+## Example:
+```yaml
 climate:
   - platform: harmony_ac
     name: Living Room
-    host: '192.168.0.10'
+    remote_entity: remote.living_room
     device_id: 12345678
     min_temp: 18
     max_temp: 30
@@ -45,14 +45,14 @@ climate:
         - high
 ```
 
-#### How to obtain your Air Conditioner's Device ID
+## How to obtain your Air Conditioner's Device ID
 
 This assumes you have already setup the official home assitant [harmony component](https://www.home-assistant.io/components/remote.harmony/) and have added your air conditioner as a device in the [MyHarmony](https://www.myharmony.com) software.
 * in your home assistant config folder, delete `harmony_*.conf` if it exists. eg. mine is called `harmony_living_room.conf`
 * restart home assistant
 * when it boots up it should create a new `harmony_*.conf` file. Open this and find your air conditioner device, it should have an ID number next to it.
 
-#### How to learn and name all the IR commands for your air conditioner
+## How to learn and name all the IR commands for your air conditioner
 This part is unfortunately going to be manual. Every combination of **operations** (heat, cool, dry, etc), **fan modes** (low, mid, high, auto, etc) and **temperatures**, will need to be learned manually within the MyHarmony software. The naming convention of each command is important for this component to work.
 
 * in MyHarmony, go to devices > your air conditioner and click on **Add or Fix a Command**
