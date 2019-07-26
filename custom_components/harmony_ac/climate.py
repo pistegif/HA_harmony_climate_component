@@ -106,12 +106,13 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         """Initialize Harmony IR Climate device."""
         self.hass = hass
         self._name = name
-
+        self._remote_entity = remote_entity
+        self._device_id = device_id
         self._min_temp = min_temp
         self._max_temp = max_temp
         self._target_temperature = target_temp
         self._target_temperature_step = target_temp_step
-        self._unit_of_measurement = hass.config.units.temperature_unit
+        self._temperature_sensor = temperature_sensor
 
         valid_hvac_modes = [x for x in operation_list if x in HVAC_MODES]        
         
@@ -119,14 +120,12 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         self._fan_modes = fan_list
 
         self._hvac_mode = HVAC_MODE_OFF
-        self._last_on_operation = None
         self._current_fan_mode = self._fan_modes[0]
+        self._last_on_operation = None
 
         self._current_temperature = None
-        self._temperature_sensor = temperature_sensor
-
-        self._remote_entity = remote_entity
-        self._device_id = device_id
+        self._unit_of_measurement = hass.config.units.temperature_unit
+        self._support_flags = SUPPORT_FLAGS
 
 
     async def async_added_to_hass(self):
@@ -151,8 +150,139 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
             if temp_sensor_state and temp_sensor_state.state != STATE_UNKNOWN:
                 self._async_update_temp(temp_sensor_state)
 
+    @property
+    def name(self):
+        """Return the name of the climate device."""
+        return self._name
 
-    async def async_send_ir(self):     
+    @property
+    def state(self):
+        """Return the current state."""
+        if self.hvac_mode != HVAC_MODE_OFF:
+            return self.hvac_mode
+        return HVAC_MODE_OFF
+
+    @property
+    def temperature_unit(self):
+        """Return the unit of measurement."""
+        return self._unit_of_measurement
+
+    @property
+    def min_temp(self):
+        """Return the polling state."""
+        return self._min_temp
+        
+    @property
+    def max_temp(self):
+        """Return the polling state."""
+        return self._max_temp
+
+    @property
+    def target_temperature(self):
+        """Return the temperature we try to reach."""
+        return self._target_temperature
+        
+    @property
+    def target_temperature_step(self):
+        """Return the supported step of target temperature."""
+        return self._target_temperature_step
+
+    @property
+    def hvac_modes(self):
+        """Return the list of available operation modes."""
+        return self._operation_modes
+
+    @property
+    def hvac_mode(self):
+        """Return hvac mode ie. heat, cool."""
+        return self._hvac_mode
+
+    @property
+    def last_on_operation(self):
+        """Return the last non-idle operation ie. heat, cool."""
+        return self._last_on_operation
+    
+    @property
+    def fan_modes(self):
+        """Return the list of available fan modes."""
+        return self._fan_modes
+        
+    @property
+    def fan_mode(self):
+        """Return the fan setting."""
+        return self._current_fan_mode
+
+    @property
+    def current_temperature(self):
+        """Return the current temperature."""
+        return self._current_temperature
+
+    @property
+    def supported_features(self):
+        """Return the list of supported features."""
+        return self._support_flags
+        
+    @property
+    def should_poll(self):
+        """Return the polling state."""
+        return False
+        
+    async def async_set_temperature(self, **kwargs):
+        """Set new target temperatures."""
+        hvac_mode = kwargs.get(ATTR_HVAC_MODE)  
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+
+        if temperature is None:
+            return
+            
+        if temperature < self._min_temp or temperature > self._max_temp:
+            _LOGGER.warning('The temperature value is out of min/max range') 
+            return
+
+        if self._target_temperature_step == PRECISION_WHOLE:
+            self._target_temperature = round(temperature)
+        else:
+            self._target_temperature = round(temperature, 1)
+
+        if hvac_mode:
+            await self.async_set_hvac_mode(hvac_mode)
+            return
+        
+        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
+            await self.async_send_command()
+
+        await self.async_update_ha_state()
+
+    async def async_set_hvac_mode(self, hvac_mode):
+        """Set operation mode."""        
+        self._hvac_mode = hvac_mode
+        
+        if not hvac_mode == HVAC_MODE_OFF:
+            self._last_on_operation = hvac_mode
+
+        await self.async_send_command()
+        await self.async_update_ha_state()
+
+    async def async_set_fan_mode(self, fan_mode):
+        """Set fan mode."""
+        self._current_fan_mode = fan_mode
+        
+        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
+            await self.async_send_command()
+        await self.async_update_ha_state()
+
+    async def async_turn_off(self):
+        """Turn off."""
+        await self.async_set_hvac_mode(HVAC_MODE_OFF)
+
+    async def async_turn_on(self):
+        """Turn on."""
+        if self._last_on_operation is not None:
+            await self.async_set_hvac_mode(self._last_on_operation)
+        else:
+            await self.async_set_hvac_mode(self._operation_modes[1])
+
+    async def async_send_command(self):     
         """Send command to harmony device"""
 
         operation_mode = self._hvac_mode
@@ -177,162 +307,20 @@ class HarmonyIRClimate(ClimateDevice, RestoreEntity):
         await self.hass.services.async_call(
             'remote', 'send_command', service_data) 
             
-
-      
     async def _async_temp_sensor_changed(self, entity_id, old_state, 
                                          new_state):
         """Handle temperature changes."""
         if new_state is None:
             return
 
-        self._async_update_current_temp(new_state)
+        self._async_update_temp(new_state)
         await self.async_update_ha_state()
         
     @callback
-    def _async_update_current_temp(self, state):
+    def _async_update_temp(self, state):
         """Update thermostat with latest state from temperature sensor."""
         try:
             if state.state != STATE_UNKNOWN:
                 self._current_temperature = float(state.state)
         except ValueError as ex:
             _LOGGER.error("Unable to update from temperature sensor: %s", ex)  
-  
-    @property
-    def should_poll(self):
-        """Return the polling state."""
-        return False
-
-    @property
-    def name(self):
-        """Return the name of the climate device."""
-        return self._name
-
-    @property
-    def state(self):
-        """Return the current state."""
-        # if self._on_by_remote:
-        #     return STATE_ON
-        if self.hvac_mode != HVAC_MODE_OFF:
-            return self.hvac_mode
-        return HVAC_MODE_OFF
-
-    @property
-    def temperature_unit(self):
-        """Return the unit of measurement."""
-        return self._unit_of_measurement
-
-    @property
-    def current_temperature(self):
-        """Return the current temperature."""
-        return self._current_temperature
-        
-    @property
-    def min_temp(self):
-        """Return the polling state."""
-        return self._min_temp
-        
-    @property
-    def max_temp(self):
-        """Return the polling state."""
-        return self._max_temp    
-        
-    @property
-    def target_temperature(self):
-        """Return the temperature we try to reach."""
-        return self._target_temperature
-        
-    @property
-    def target_temperature_step(self):
-        """Return the supported step of target temperature."""
-        return self._target_temperature_step
-
-    @property
-    def current_operation(self):
-        """Return current operation ie. heat, cool, idle."""
-        return self._current_operation
-
-    @property
-    def last_on_operation(self):
-        """Return the last non-idle operation ie. heat, cool."""
-        return self._last_on_operation
-    
-    @property
-    def hvac_modes(self):
-        """Return the list of available operation modes."""
-        return self._operation_modes
-
-    @property
-    def hvac_mode(self):
-        """Return hvac mode ie. heat, cool."""
-        return self._hvac_mode
-
-    @property
-    def fan_mode(self):
-        """Return the fan setting."""
-        return self._current_fan_mode
-
-    @property
-    def fan_modes(self):
-        """Return the list of available fan modes."""
-        return self._fan_modes
-        
-    @property
-    def supported_features(self):
-        """Return the list of supported features."""
-        return SUPPORT_FLAGS        
- 
-    async def async_set_temperature(self, **kwargs):
-        """Set new target temperatures."""
-        hvac_mode = kwargs.get(ATTR_HVAC_MODE)  
-        temperature = kwargs.get(ATTR_TEMPERATURE)
-
-        if temperature is None:
-            return
-            
-        if temperature < self._min_temp or temperature > self._max_temp:
-            _LOGGER.warning('The temperature value is out of min/max range') 
-            return
-
-        if self._target_temperature_step == PRECISION_WHOLE:
-            self._target_temperature = round(temperature)
-        else:
-            self._target_temperature = round(temperature, 1)
-
-        if hvac_mode:
-            await self.async_set_hvac_mode(hvac_mode)
-            return
-        
-        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
-            await self.async_send_ir()
-
-        await self.async_update_ha_state()
-
-    async def async_set_fan_mode(self, fan_mode):
-        """Set fan mode."""
-        self._current_fan_mode = fan_mode
-        
-        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
-            await self.async_send_ir()
-            
-        await self.async_update_ha_state()
-
-    async def async_set_hvac_mode(self, hvac_mode):
-        """Set operation mode."""        
-        self._hvac_mode = hvac_mode
-        
-        if not hvac_mode == HVAC_MODE_OFF:
-            self._last_on_operation = hvac_mode
-
-        await self.async_send_ir()
-        await self.async_update_ha_state()
-
-    async def async_turn_on(self):
-        """Turn thermostat on."""
-        if self._last_on_operation is not None:
-            await self.async_set_hvac_mode(self._last_on_operation)
-        else:
-            await self.async_set_hvac_mode(self._operation_modes[1])
-
-    async def async_turn_off(self):
-        """Turn thermostat off."""
-        await self.async_set_hvac_mode(HVAC_MODE_OFF)
