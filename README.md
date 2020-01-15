@@ -1,29 +1,40 @@
-# Harmony Hub Climate Component
+## Harmony Hub Climate Controller
 
-I created this custom climate component to control air conidioners through a Harmony Hub. I forked from this [project](https://github.com/vpnmaster/homeassistant-custom-components), which was created for Broadlink RM Devices, so thanks goes to [vpnmaster](https://github.com/vpnmaster) for doing the hard work in creating that component.
+[![homeassistant_community](https://img.shields.io/badge/HA%20community-forum-brightgreen)](https://community.home-assistant.io/t/harmony-hub-climate-component-for-a-c-integration/76793)
+[![Github Stars](https://img.shields.io/github/stars/so3n/HA_harmony_climate_component)](https://github.com/so3n/HA_harmony_climate_component)
+
+Harmony Hub Climate Controller allows you to control IR climate devices (eg. split system air conditioners) through a Harmony Hub. 
+
+This component appears to home assistant as a climate device and as such can be intuitively used to control an air conditioner or other climate device.
+
+<img style="border: 1px solid #767676;border-radius: 10px;max-width: 460px;width: 100%;box-sizing: border-box;" src="https://raw.githubusercontent.com/so3n/HA_harmony_climate_component/master/img/thermostat_card.png" alt="Thermostat Lovelace Card">
+
+I forked from this [project](https://github.com/vpnmaster/homeassistant-custom-components), which was created for Broadlink RM Devices, so thanks goes to [vpnmaster](https://github.com/vpnmaster) for doing the hard work in creating that component.
 
 ## Installing
-Download or clone this project, and place the `custom_components` folder and its contents into your Home Assistant config folder.
 
-Ensure `climate.py` is located in a folder named `harmony_ac` within the `custom_components` folder.
+If not installing via [HACS](https://hacs.xyz/), follow the manual steps below:
+1. Download or clone this project, and place the `custom_components` folder and its contents into your Home Assistant config folder.
+2. Ensure `climate.py` is located in a folder named `harmony_ac` within the `custom_components` folder.
 
 
-
-## Configuration in configuration.yaml:
-**platform** (Required:) set this to `harmony_ac`<br />
-**name** (Optional): Name you would like to give this climate component<br />
-**remote_entity** (Required): **entity_id** of your existing harmony device in HA that will send the commands<br />
-**device_id** (Required): The ID Harmony has assigned to your air conditioner unit (see further below for how to obtain)<br />
-**min_temp** (Optional): Set minimum temperature range (default: 16)<br />
-**max_temp** (Optional): Set maximum temperature range (default: 30)<br />
-**target_temp** (Optional): Set initial target temperature. (default: 20)<br />
-**target_temp_step** (Optional): set target temperature step. (default: 1)<br />
-**temp_sensor** (Optional): **entity_id** for a temperature sensor, **temp_sensor.state must be temperature.**<br />
-**customize** (Optional): List of options to customize.<br />
-  **- operations** (Optional): List of operation modes (default: heat, cool, auto) **do not include the OFF mode in this list**<br />
-  **- fan_modes** (Optional): List of fan modes (default: auto, low, mid, high)<br />
+## Configuration.yaml
+| Variable | Optional | Description |
+| -------- | ---------- | ----------- |
+| platform | Required | set this to `harmony_ac` |
+| name | Optional | Name you would like to give this climate component |
+| remote_entity | Required |  `entity_id` of your existing harmony device in HA that will send the commands |
+| device_id | Required |  The ID Harmony has assigned to your air conditioner unit (see further below for how to obtain) |
+| min_temp | Optional |  Set minimum temperature range (default: 16) |
+| max_temp | Optional |  Set maximum temperature range (default: 30) |
+| target_temp | Optional |  Set initial target temperature. (default: 20) |
+| target_temp_step | Optional |  set target temperature step. (default: 1) |
+| temp_sensor | Optional |  `entity_id` of a temperature sensor to display room temperature <br/>_temp_sensor.state must be temperature_ |
+| customize  | Optional |  List of options to customize
+  | - operations | Optional |  List of operation modes (default: heat, cool, auto) <br/>_do not include the OFF mode in this list_
+  | - fan_modes | Optional |  List of fan modes (default: auto, low, mid, high)
   
-## Example:
+### Example
 ```yaml
 climate:
   - platform: harmony_ac
@@ -86,3 +97,7 @@ HeatLow19
 etc
 etc 
 ```
+
+<hr>
+
+<a href="https://www.buymeacoffee.com/so3n" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
