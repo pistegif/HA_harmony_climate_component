@@ -1,7 +1,8 @@
+
 ## Harmony Hub Climate Controller
 
-[![homeassistant_community](https://img.shields.io/badge/HA%20community-forum-brightgreen)](https://community.home-assistant.io/t/harmony-hub-climate-component-for-a-c-integration/76793)
-[![Github Stars](https://img.shields.io/github/stars/so3n/HA_harmony_climate_component)](https://github.com/so3n/HA_harmony_climate_component)
+[![homeassistant_community](https://img.shields.io/badge/HA%20community-forum-brightgreen)](https://community.home-assistant.io/t/harmony-hub-climate-component-for-a-c-integration/76793) [![Github Stars](https://img.shields.io/github/stars/so3n/HA_harmony_climate_component)](https://github.com/so3n/HA_harmony_climate_component) 
+<a href="https://www.buymeacoffee.com/so3n" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
 
 Harmony Hub Climate Controller allows you to control IR climate devices (eg. split system air conditioners) through a Harmony Hub. 
 
@@ -19,9 +20,19 @@ Recommended install via [HACS](https://hacs.xyz/), otherwise follow the manual s
 
 
 ## Configuration
+Once this custom component is installed, add the following to your `configuration.yaml` to use it in your HA installation
+
+```yaml
+climate:
+  - platform: harmony_ac
+    remote_entity: remote.living_room
+    device_id: 12345678
+```
+*** _refer below how to obtain `device_id`_ and for all the configuration options
+### Configuration Variables
+ 
 | Variable         | Type    | Required | Default                               | Description                                                                                                           |
 |------------------|---------|----------|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| platform         | string  | TRUE     |                                       | Platform is `harmony_ac`                                                                                              |
 | name             | string  | FALSE    | Harmony Climate Controller            | Name you would like to give this climate component                                                                    |
 | remote_entity    | string  | TRUE     |                                       | `entity_id` of your existing harmony device in HA that will send the IR commands                                      |
 | device_id        | integer | TRUE     |                                       | The ID which Harmony has assigned to the climate device you wish to control<br/>(see further below for how to obtain) |
@@ -34,9 +45,8 @@ Recommended install via [HACS](https://hacs.xyz/), otherwise follow the manual s
 | operations       | list    | FALSE    | - heat<br/>- cool<br/>- auto          | List of operation modes (nest under `customize`)<br/>_do not include the OFF mode in this list_                       |
 | fan_modes        | list    | FALSE    | - auto<br/>- low<br/>- mid<br/>- high | List of fan modes (nest under `customize`)                                                                            |
   
-## Example Usage
+### Example Usage
 ```yaml
-# configuration.yaml
 climate:
   - platform: harmony_ac
     name: Living Room
@@ -45,7 +55,7 @@ climate:
     min_temp: 18
     max_temp: 30
     target_temp: 20
-    target_temp_step: 0.5
+    target_temp_step: 1
     temp_sensor: sensor.living_room_temp
     customize:
       operations:
@@ -74,11 +84,10 @@ This part is unfortunately going to be manual. Every combination of **operations
 * Click on **add a missing command** and enter a name in the following format: *OperationFanmodeTemperature* eg. *CoolHigh18* and then follow the prompts within MyHarmony
     
 some important notes about the naming convention for commands:
-* capitalise the first letter of the *operation* and *fan-mode*
 * **Operation** must be one of the operations listed in your configuration.yaml file
 * **Fanmode** must be one of the fan_modes listed in your configuration.yaml file
 * **Temperature** must be an integer in the range specified by your min/max temp in configuration.yaml file
-* The only exception to these rules is the 'off' command. Just name this as **Off** in MyHarmony (note the capitalised first letter)
+* The only exception to these rules is the 'off' command. Just name this as **Off** in MyHarmony
 
 Some valid examples of command names based on the above configuration.yaml example
 ```
