@@ -39,7 +39,7 @@ CONF_OPERATIONS = 'operations'
 CONF_FAN_MODES = 'fan_modes'
 CONF_DEVICE_ID = 'device_id'
 
-DEFAULT_NAME = 'Harmony Hub Climate'
+DEFAULT_NAME = 'Harmony Climate Controller'
 DEFAULT_MIN_TEMP = 16
 DEFAULT_MAX_TEMP = 30
 DEFAULT_TARGET_TEMP = 20

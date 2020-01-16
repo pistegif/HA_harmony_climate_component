@@ -13,29 +13,30 @@ I forked from this [project](https://github.com/vpnmaster/homeassistant-custom-c
 
 ## Installing
 
-If not installing via [HACS](https://hacs.xyz/), follow the manual steps below:
+Recommended install via [HACS](https://hacs.xyz/), otherwise follow the manual steps below:
 1. Download or clone this project, and place the `custom_components` folder and its contents into your Home Assistant config folder.
 2. Ensure `climate.py` is located in a folder named `harmony_ac` within the `custom_components` folder.
 
 
-## Configuration.yaml
-| Variable | Optional | Description |
-| -------- | ---------- | ----------- |
-| platform | Required | set this to `harmony_ac` |
-| name | Optional | Name you would like to give this climate component |
-| remote_entity | Required |  `entity_id` of your existing harmony device in HA that will send the commands |
-| device_id | Required |  The ID Harmony has assigned to your air conditioner unit (see further below for how to obtain) |
-| min_temp | Optional |  Set minimum temperature range (default: 16) |
-| max_temp | Optional |  Set maximum temperature range (default: 30) |
-| target_temp | Optional |  Set initial target temperature. (default: 20) |
-| target_temp_step | Optional |  set target temperature step. (default: 1) |
-| temp_sensor | Optional |  `entity_id` of a temperature sensor to display room temperature <br/>_temp_sensor.state must be temperature_ |
-| customize  | Optional |  List of options to customize
-  | - operations | Optional |  List of operation modes (default: heat, cool, auto) <br/>_do not include the OFF mode in this list_
-  | - fan_modes | Optional |  List of fan modes (default: auto, low, mid, high)
+## Configuration
+| Variable         | Type    | Required | Default                               | Description                                                                                                           |
+|------------------|---------|----------|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| platform         | string  | TRUE     |                                       | Platform is `harmony_ac`                                                                                              |
+| name             | string  | FALSE    | Harmony Climate Controller            | Name you would like to give this climate component                                                                    |
+| remote_entity    | string  | TRUE     |                                       | `entity_id` of your existing harmony device in HA that will send the IR commands                                      |
+| device_id        | integer | TRUE     |                                       | The ID which Harmony has assigned to the climate device you wish to control<br/>(see further below for how to obtain) |
+| min_temp         | float   | FALSE    | 16                                    | Set minimum temperature range                                                                                         |
+| max_temp         | float   | FALSE    | 30                                    | Set maximum temperature range                                                                                         |
+| target_temp      | float   | FALSE    | 20                                    | Set initial target temperature                                                                                        |
+| target_temp_step | float   | FALSE    | 1                                     | Set target temperature step                                                                                           |
+| temp_sensor      | string  | FALSE    |                                       | `entity_id` for a temperature sensor, target_sensor.state must be temperature                                         |
+| customize        | list    | FALSE    |                                       | List of options to customize                                                                                          |
+| operations       | list    | FALSE    | - heat<br/>- cool<br/>- auto          | List of operation modes (nest under `customize`)<br/>_do not include the OFF mode in this list_                       |
+| fan_modes        | list    | FALSE    | - auto<br/>- low<br/>- mid<br/>- high | List of fan modes (nest under `customize`)                                                                            |
   
-### Example
+## Example Usage
 ```yaml
+# configuration.yaml
 climate:
   - platform: harmony_ac
     name: Living Room
