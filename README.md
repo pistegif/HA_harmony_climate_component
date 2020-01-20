@@ -1,3 +1,5 @@
+
+
 ## Harmony Hub Climate Controller
 
 [![homeassistant_community](https://img.shields.io/badge/HA%20community-forum-brightgreen)](https://community.home-assistant.io/t/harmony-hub-climate-component-for-a-c-integration/76793) [![Github Stars](https://img.shields.io/github/stars/so3n/HA_harmony_climate_component)](https://github.com/so3n/HA_harmony_climate_component) 
@@ -114,5 +116,6 @@ etc
 etc 
 ```
 
-<hr>
+<hr/>
+
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/so3n)
