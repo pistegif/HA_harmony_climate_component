@@ -47,11 +47,12 @@ climate:
 
 ### `Customize`Configuration Options
 
-|Variable  |Type|Required|Default                              |Description                                                                                                             |
-|----------|----|--------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-|operations|list|FALSE   |- heat<br/>- cool<br/>- auto         |List of operation modes (nest under `customize`)<br/>_do not include the OFF mode in this list_                         |
-|fan_modes |list|FALSE   |- auto<br/>- low<br/>- mid<br/>- high|List of fan modes (nest under `customize`)                                                                             |
-  
+|Variable           |Type|Required|Default                              |Description                                                                                                             |
+|-------------------|----|--------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+|operations         |list|FALSE   |- heat<br/>- cool<br/>- auto         |List of operation modes (nest under `customize`)<br/>_do not include the OFF mode in this list_                         |
+|fan_modes          |list|FALSE   |- auto<br/>- low<br/>- mid<br/>- high|List of fan modes (nest under `customize`)                                                                             |
+|no_temp_operations |list|FALSE   |                                     |List of operation modes that will not send a target temperature (nest under `customize`)
+
 ### Example Usage
 ```yaml
 climate:
@@ -69,7 +70,11 @@ climate:
         - cool
         - heat
         - dry
+        - fan_only
         - auto
+      no_temp_operations:
+        - dry
+        - fan_only
       fan_modes:
         - auto
         - low
@@ -86,15 +91,15 @@ This assumes you have already setup the official home assitant [harmony componen
 * when it boots up it should create a new `harmony_*.conf` file. Open this and find your air conditioner device, it should have an ID number next to it.
 
 ### How to learn and name all the IR commands for your air conditioner
-This part is unfortunately going to be manual. Every combination of **operations** (heat, cool, dry, etc), **fan modes** (low, mid, high, auto, etc) and **temperatures**, will need to be learned manually within the MyHarmony software. The naming convention of each command is important for this component to work.
+This part is unfortunately going to be manual. Every combination of **operations** (heat, cool, dry, fan_only, heat_cool, etc), **fan modes** (low, mid, high, auto, etc) and **temperatures**, will need to be learned manually within the MyHarmony software. The naming convention of each command is important for this component to work.
 
 * in MyHarmony, go to devices > your air conditioner and click on **Add or Fix a Command**
 * Click on **add a missing command** and enter a name in the following format: *OperationFanmodeTemperature* eg. *CoolHigh18* and then follow the prompts within MyHarmony
     
 some important notes about the naming convention for commands:
-* **Operation** must be one of the operations listed in your configuration.yaml file
+* **Operation** must be one of the operations listed in your configuration.yaml file. If the operation has two words, remove the underscore and capitalize each word: `FanOnly`
 * **Fanmode** must be one of the fan_modes listed in your configuration.yaml file
-* **Temperature** must be an integer in the range specified by your min/max temp in configuration.yaml file
+* **Temperature** must be an integer in the range specified by your min/max temp in configuration.yaml file. Operations configured in `no_temp_operations` should not include a temperature in the Harmony command
 * The only exception to these rules is the 'off' command. Just name this as **Off** in MyHarmony
 
 Some valid examples of command names based on the above configuration.yaml example
@@ -112,6 +117,16 @@ CoolHigh20
 CoolHigh30
 HeatLow18
 HeatLow19
+etc
+etc
+```
+
+Any modes configured in the `no_temp_operations` Customization entry should not include a temperature:
+```
+FanOnlyHigh
+FanOnlyLow
+DryHigh
+DryLow
 etc
 etc 
 ```
