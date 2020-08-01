@@ -33,25 +33,26 @@ climate:
 
 ### Main Configuration Options
  
-|Variable        |Type   |Required|Default                   |Description                                                                                                            |
-|----------------|-------|--------|--------------------------|-----------------------------------------------------------------------------------------------------------------------|
-|name            |string |FALSE   |Harmony Climate Controller|Name you would like to give this climate component                                                                     |
-|remote_entity   |string |TRUE    |                          |`entity_id` of your existing harmony device in HA that will send the IR commands                                       |
-|device_id       |integer|TRUE    |                          |The ID which Harmony has assigned to the climate device you wish to control<br/>(refer to FAQ's below on how to obtain)|
-|min_temp        |float  |FALSE   |16                        |Set minimum temperature range                                                                                          |
-|max_temp        |float  |FALSE   |30                        |Set maximum temperature range                                                                                          |
-|target_temp     |float  |FALSE   |20                        |Set initial target temperature                                                                                         |
-|target_temp_step|float  |FALSE   |1                         |Set target temperature step                                                                                            |
-|temp_sensor     |string |FALSE   |                          |`entity_id` for a temperature sensor, target_sensor.state must be temperature                                          |
-|customize       |list   |FALSE   |                          |List of options to customize. Refer to table below                                                                     |
+| Variable         | Type    | Required | Default                    | Description                                                                                                             |
+| ---------------- | ------- | -------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| name             | string  | FALSE    | Harmony Climate Controller | Name you would like to give this climate component                                                                      |
+| remote_entity    | string  | TRUE     |                            | `entity_id` of your existing harmony device in HA that will send the IR commands                                        |
+| device_id        | integer | TRUE     |                            | The ID which Harmony has assigned to the climate device you wish to control<br/>(refer to FAQ's below on how to obtain) |
+| min_temp         | float   | FALSE    | 16                         | Set minimum temperature range                                                                                           |
+| max_temp         | float   | FALSE    | 30                         | Set maximum temperature range                                                                                           |
+| target_temp      | float   | FALSE    | 20                         | Set initial target temperature                                                                                          |
+| target_temp_step | float   | FALSE    | 1                          | Set target temperature step                                                                                             |
+| temp_sensor      | string  | FALSE    |                            | `entity_id` for a temperature sensor, target_sensor.state must be temperature                                           |
+| customize        | list    | FALSE    |                            | List of options to customize. Refer to table below                                                                      |
+| debug_mode       | boolean | FALSE    | `false`                    | When set to `true` commands are sent to Home Assistant Log only (no commands are sent to Harmony Device).               |
 
 ### `Customize`Configuration Options
 
-|Variable           |Type|Required|Default                              |Description                                                                                                             |
-|-------------------|----|--------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-|operations         |list|FALSE   |- heat<br/>- cool<br/>- auto         |List of operation modes (nest under `customize`)<br/>_do not include the OFF mode in this list_                         |
-|fan_modes          |list|FALSE   |- auto<br/>- low<br/>- mid<br/>- high|List of fan modes (nest under `customize`)                                                                             |
-|no_temp_operations |list|FALSE   |                                     |List of operation modes that will not send a target temperature (nest under `customize`)
+| Variable           | Type | Required | Default                               | Description                                                                                     |
+| ------------------ | ---- | -------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| operations         | list | FALSE    | - heat<br/>- cool<br/>- auto          | List of operation modes (nest under `customize`)<br/>_do not include the OFF mode in this list_ |
+| fan_modes          | list | FALSE    | - auto<br/>- low<br/>- mid<br/>- high | List of fan modes (nest under `customize`)                                                      |
+| no_temp_operations | list | FALSE    |                                       | List of operation modes that will not send a target temperature (nest under `customize`)        |
 
 ### Example Usage
 ```yaml
