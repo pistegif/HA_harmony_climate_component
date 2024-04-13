@@ -174,6 +174,11 @@ class HarmonyIRClimate(ClimateEntity, RestoreEntity):
         return self._name
 
     @property
+    def unique_id(self) -> str:
+        """Return a unique id for this entity."""
+        return 'hac_' + self._remote_entity.replace(".", "") + '_' + self._device_id
+
+    @property
     def state(self):
         """Return the current state."""
         if self.hvac_mode != HVACMode.OFF:
