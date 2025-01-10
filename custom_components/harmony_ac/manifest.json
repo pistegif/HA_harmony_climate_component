@@ -2,8 +2,9 @@
   "domain": "harmony_ac",
   "name": "Harmony AC",
   "documentation": "https://github.com/nickneos/HA_harmony_climate_component",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "dependencies": [],
-  "codeowners": [],
-  "requirements": []
+  "codeowners": ["@nickneos"],
+  "requirements": [],
+  "issue_tracker": "https://github.com/nickneos/HA_harmony_climate_component/issues"
 }
