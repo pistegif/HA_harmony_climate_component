@@ -4,7 +4,9 @@
   "documentation": "https://github.com/nickneos/HA_harmony_climate_component",
   "version": "0.3.0",
   "dependencies": [],
-  "codeowners": ["@nickneos"],
+  "codeowners": [
+    "@nickneos"
+  ],
   "requirements": [],
   "issue_tracker": "https://github.com/nickneos/HA_harmony_climate_component/issues"
 }
