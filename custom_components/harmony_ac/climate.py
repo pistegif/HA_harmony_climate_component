@@ -11,13 +11,12 @@ import homeassistant.helpers.config_validation as cv
 
 from homeassistant.components.climate import ClimateEntity, PLATFORM_SCHEMA
 from homeassistant.components.climate.const import (
-    HVAC_MODE_OFF, HVAC_MODE_HEAT, HVAC_MODE_COOL,
-    HVAC_MODE_DRY, HVAC_MODE_FAN_ONLY, HVAC_MODE_AUTO,
-    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE,
+    ClimateEntityFeature,
+    HVACMode,
     HVAC_MODES, ATTR_HVAC_MODE)
 from homeassistant.const import (
-    CONF_NAME, CONF_CUSTOMIZE, STATE_ON, STATE_UNKNOWN, ATTR_TEMPERATURE,
-    PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE)
+    CONF_NAME, CONF_CUSTOMIZE, STATE_ON, STATE_UNKNOWN, STATE_UNAVAILABLE,
+    ATTR_TEMPERATURE, PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE)
 from homeassistant.helpers.event import (async_track_state_change)
 from homeassistant.core import callback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -25,8 +24,10 @@ from homeassistant.helpers.restore_state import RestoreEntity
 _LOGGER = logging.getLogger(__name__)
 
 SUPPORT_FLAGS = (
-    SUPPORT_TARGET_TEMPERATURE | 
-    SUPPORT_FAN_MODE
+    ClimateEntityFeature.TARGET_TEMPERATURE | 
+    ClimateEntityFeature.FAN_MODE |
+    ClimateEntityFeature.TURN_OFF |
+    ClimateEntityFeature.TURN_ON 
 )
 
 CONF_REMOTE_ENTITY = 'remote_entity'
@@ -46,7 +47,7 @@ DEFAULT_MIN_TEMP = 16
 DEFAULT_MAX_TEMP = 30
 DEFAULT_TARGET_TEMP = 20
 DEFAULT_TARGET_TEMP_STEP = 1
-DEFAULT_OPERATION_LIST = [HVAC_MODE_HEAT, HVAC_MODE_COOL, HVAC_MODE_AUTO]
+DEFAULT_OPERATION_LIST = [HVACMode.HEAT, HVACMode.COOL, HVACMode.AUTO]
 DEFAULT_NO_TEMP_OPERATION_LIST = []
 DEFAULT_FAN_MODE_LIST = ['auto', 'low', 'mid', 'high']
 DEFAULT_DEBUG_MODE = False
@@ -131,18 +132,19 @@ class HarmonyIRClimate(ClimateEntity, RestoreEntity):
         valid_hvac_modes = [x for x in operation_list if x in HVAC_MODES]
         valid_no_temp_operation_modes = [x for x in no_temp_operations_list if x in HVAC_MODES]
         
-        self._operation_modes = [HVAC_MODE_OFF] + valid_hvac_modes
+        self._operation_modes = [HVACMode.OFF] + valid_hvac_modes
         self._no_temp_operation_modes = valid_no_temp_operation_modes
         self._fan_modes = fan_list
 
-        self._hvac_mode = HVAC_MODE_OFF
+        self._hvac_mode = HVACMode.OFF
         self._current_fan_mode = self._fan_modes[0]
         self._last_on_operation = None
 
         self._current_temperature = None
         self._unit_of_measurement = hass.config.units.temperature_unit
         self._support_flags = SUPPORT_FLAGS
-
+        self._enable_turn_on_off_backwards_compatibility = False
+        
 
     async def async_added_to_hass(self):
         """Run when entity about to be added."""
@@ -174,9 +176,9 @@ class HarmonyIRClimate(ClimateEntity, RestoreEntity):
     @property
     def state(self):
         """Return the current state."""
-        if self.hvac_mode != HVAC_MODE_OFF:
+        if self.hvac_mode != HVACMode.OFF:
             return self.hvac_mode
-        return HVAC_MODE_OFF
+        return HVACMode.OFF
 
     @property
     def temperature_unit(self):
@@ -264,32 +266,32 @@ class HarmonyIRClimate(ClimateEntity, RestoreEntity):
             await self.async_set_hvac_mode(hvac_mode)
             return
         
-        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
+        if not self._hvac_mode.lower() == HVACMode.OFF:
             await self.async_send_command()
 
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode):
         """Set operation mode."""        
         self._hvac_mode = hvac_mode
         
-        if not hvac_mode == HVAC_MODE_OFF:
+        if not hvac_mode == HVACMode.OFF:
             self._last_on_operation = hvac_mode
 
         await self.async_send_command()
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode):
         """Set fan mode."""
         self._current_fan_mode = fan_mode
         
-        if not self._hvac_mode.lower() == HVAC_MODE_OFF:
+        if not self._hvac_mode.lower() == HVACMode.OFF:
             await self.async_send_command()
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
 
     async def async_turn_off(self):
         """Turn off."""
-        await self.async_set_hvac_mode(HVAC_MODE_OFF)
+        await self.async_set_hvac_mode(HVACMode.OFF)
 
     async def async_turn_on(self):
         """Turn on."""
@@ -306,7 +308,7 @@ class HarmonyIRClimate(ClimateEntity, RestoreEntity):
         fan_mode = self._current_fan_mode
         target_temperature = '{0:g}'.format(self._target_temperature)
 
-        if operation_mode.lower() == HVAC_MODE_OFF:
+        if operation_mode.lower() == HVACMode.OFF:
             command = 'Off'
         elif operation_mode.lower() in self._no_temp_operation_modes:
             command = operation_mode_command_string + fan_mode.capitalize()
@@ -336,13 +338,13 @@ class HarmonyIRClimate(ClimateEntity, RestoreEntity):
             return
 
         self._async_update_temp(new_state)
-        await self.async_update_ha_state()
+        self.async_write_ha_state()
         
     @callback
     def _async_update_temp(self, state):
         """Update thermostat with latest state from temperature sensor."""
         try:
-            if state.state != STATE_UNKNOWN:
+            if state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
                 self._current_temperature = float(state.state)
         except ValueError as ex:
             _LOGGER.error("Unable to update from temperature sensor: %s", ex)  
